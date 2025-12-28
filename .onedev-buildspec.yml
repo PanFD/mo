@@ -25,16 +25,10 @@ jobs:
           - npm run tauri build
         useTTY: false
         condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
-    artifacts: src-tauri/target/release/bundle/**
-    caches:
-      - key: npm-cache
-        path: /root/.npm
-      - key: cargo-registry
-        path: /root/.cargo/registry
-      - key: cargo-git
-        path: /root/.cargo/git
-      - key: tauri-target
-        path: src-tauri/target
+      - !PublishArtifactStep
+        name: publish
+        artifacts: src-tauri/target/release/bundle/**
+        condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
     triggers:
       - !BranchUpdateTrigger
         branches: main
@@ -75,16 +69,10 @@ jobs:
           - npm run tauri build -- --target aarch64-unknown-linux-gnu
         useTTY: false
         condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
-    artifacts: src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/**
-    caches:
-      - key: npm-cache
-        path: /root/.npm
-      - key: cargo-registry
-        path: /root/.cargo/registry
-      - key: cargo-git
-        path: /root/.cargo/git
-      - key: tauri-target-aarch64
-        path: src-tauri/target
+      - !PublishArtifactStep
+        name: publish
+        artifacts: src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/**
+        condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
     triggers:
       - !BranchUpdateTrigger
         branches: main
