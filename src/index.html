@@ -293,6 +293,9 @@
         }
     };
 
+    const serviceNextCheck = {};
+    let servicePollTimer = null;
+
     // --- Tab Management ---
     window.switchTab = function(tabName) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -482,9 +485,11 @@
              // Reset page if out of bounds
             const totalPages = Math.ceil(state.services.length / state.pagination.service.pageSize) || 1;
             if (state.pagination.service.page > totalPages) state.pagination.service.page = 1;
-            
+
             renderServicesList();
             refreshAllServices();
+            resetServiceSchedule();
+            startServicePolling();
         } catch (e) { console.error(e); }
     }
 
@@ -533,6 +538,48 @@
             renderServicesList();
         } catch (e) { console.error(e); }
     };
+
+    function resetServiceSchedule() {
+        for (const key in serviceNextCheck) delete serviceNextCheck[key];
+        const now = Date.now();
+        state.services.forEach(s => {
+            if (s.enabled) serviceNextCheck[s.id] = now;
+        });
+    }
+
+    function startServicePolling() {
+        if (servicePollTimer) return;
+        servicePollTimer = setInterval(() => {
+            tickServicePolling().catch(console.error);
+        }, 1000);
+    }
+
+    async function tickServicePolling() {
+        const now = Date.now();
+        const services = state.services.filter(s => s.enabled && s.check_interval && s.check_interval > 0);
+        let updated = false;
+        for (const service of services) {
+            const intervalMs = service.check_interval * 1000;
+            const next = serviceNextCheck[service.id] ?? 0;
+            if (now >= next) {
+                try {
+                    const status = await invoke('check_service', { id: service.id });
+                    state.serviceStatuses[status.service_id] = status;
+                } catch (e) {
+                    state.serviceStatuses[service.id] = {
+                        service_id: service.id,
+                        is_online: false,
+                        response_time: 0,
+                        last_checked: new Date().toISOString(),
+                        error_message: String(e)
+                    };
+                }
+                serviceNextCheck[service.id] = now + intervalMs;
+                updated = true;
+            }
+        }
+        if (updated) renderServicesList();
+    }
     
     // --- Config & Modals ---
     async function loadConfig() {
