@@ -47,8 +47,15 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Use npm 10 (avoid npm 11 optional deps bug)
+        run: |
+          npm install -g npm@10
+          npm --version
+
       - name: Install NPM Dependencies
-        run: npm install
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -62,13 +69,7 @@ jobs:
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
 
       - name: Build Tauri App
-        run: npm run tauri build -- --target aarch64-unknown-linux-gnu
-
-      - name: Upload Deb Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: monitor-dashboard-deb-arm64
-          path: src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb/*.deb
+        run: npm run tauri build -- --target aarch64-unknown-linux-gnu --bundles appimage
 
       - name: Upload AppImage Artifact
         uses: actions/upload-artifact@v4
