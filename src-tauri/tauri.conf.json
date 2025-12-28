@@ -13,12 +13,12 @@
     "windows": [
       {
         "title": "Monitor Dashboard",
-        "width": 500,
-        "height": 900,
+        "width": 700,
+        "height": 400,
         "resizable": true,
         "fullscreen": false,
-        "minWidth": 350,
-        "minHeight": 600
+        "minWidth": 700,
+        "minHeight": 400
       }
     ],
     "security": {
