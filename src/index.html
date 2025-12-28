@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>仪表盘</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Noto+Sans+SC:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#137fec",
+            "background-light": "#f6f7f8",
+            "background-dark": "#101922",
+            "surface-dark": "#1c242d", 
+            "surface-light": "#ffffff",
+          },
+          fontFamily: {
+            "display": ["Space Grotesk", "Noto Sans SC", "sans-serif"],
+            "body": ["Noto Sans SC", "sans-serif"],
+          },
+          borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+        },
+      },
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #374151;
+      border-radius: 3px;
+    }
+    body {
+      min-height: max(884px, 100dvh);
+    }
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom, 20px);
+    }
+    .page {
+      display: none;
+    }
+    .page.active {
+      display: block;
+    }
+  </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-body antialiased overflow-x-hidden pb-20">
+  <header class="sticky top-0 z-50 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-1">
+        <div>
+
+        </div>
+      </div>
+    <div class="flex items-center gap-5">
+        <button onclick="scrollToSection('dashboard', 'device-control')" class="px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors" id="nav-device">设备控制</button>
+        <button onclick="scrollToSection('nas', 'nas-content')" class="px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors" id="nav-nas">服务监控</button>
+        <button onclick="openHaSettings()" class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+          <span class="material-symbols-outlined">settings</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="w-full mx-auto p-4 max-w-2xl lg:max-w-4xl pb-0">
+    <section class="grid grid-cols-3 gap-3">
+      <!-- CPU Status Card -->
+      <div class="relative group cursor-pointer overflow-hidden rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-800 p-4 shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all" onclick="openTempSettings()">
+          <div class="flex flex-col h-full justify-center items-center gap-2">
+            <div class="p-2 rounded-full bg-blue-50 dark:bg-blue-900/20 text-primary">
+              <span class="material-symbols-outlined">memory</span>
+            </div>
+            <div class="text-center">
+              <h4 class="font-display font-bold text-slate-900 dark:text-white text-xs"><span id="cpu-temp">--°C</span></h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">使用率 <span id="cpu-usage" class="font-bold text-slate-700 dark:text-slate-300">--%</span></p>
+            </div>
+          </div>
+      </div>
+
+      <!-- Network Status Card -->
+      <div class="relative group cursor-pointer overflow-hidden rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-800 p-4 shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all" onclick="refreshNetwork()">
+          <div class="flex flex-col h-full justify-center items-center gap-2">
+            <div class="p-2 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500">
+              <span class="material-symbols-outlined">network_check</span>
+            </div>
+            <div class="text-center">
+              <h4 class="font-display font-bold text-slate-900 dark:text-white text-xs"><span id="net-latency">--ms</span></h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" id="net-status">在线</p>
+            </div>
+          </div>
+      </div>
+
+      <!-- Network Speed Card -->
+      <div class="relative group cursor-pointer overflow-hidden rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-800 p-4 shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all">
+          <div class="flex flex-col h-full justify-center items-center gap-2">
+            <div class="p-2 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-500">
+              <span class="material-symbols-outlined">swap_vert</span>
+            </div>
+            <div class="text-center">
+              <h4 class="font-display font-bold text-slate-900 dark:text-white text-xs"><span id="download-speed">--</span></h4>
+              <div class="flex items-center justify-center gap-1 mt-1">
+                 <span class="material-symbols-outlined text-[14px] text-slate-400">upload</span>
+                 <span class="text-xs text-slate-500 dark:text-slate-400" id="upload-speed">--</span>
+              </div>
+            </div>
+          </div>
+      </div>
+    </section>
+  </div>
+
+  <main id="dashboard-page" class="page active w-full mx-auto flex flex-col gap-6 p-4 max-w-2xl lg:max-w-4xl pt-2">
+
+<!-- 
+    <section class="grid grid-cols-2 gap-3">
+      <button onclick="shutdownSystem()" class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-700 hover:border-red-500 dark:hover:border-red-500 group transition-all">
+        <div class="p-2 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 group-hover:scale-110 transition-transform">
+          <span class="material-symbols-outlined text-[24px]">power_settings_new</span>
+        </div>
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">关闭系统</span>
+      </button>
+      <button onclick="restartSystem()" class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-700 hover:border-primary dark:hover:border-primary group transition-all">
+        <div class="p-2 rounded-full bg-blue-50 dark:bg-blue-900/20 text-primary group-hover:scale-110 transition-transform">
+          <span class="material-symbols-outlined text-[24px]">restart_alt</span>
+        </div>
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">重启系统</span>
+      </button>
+      <button class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-700 hover:border-primary dark:hover:border-primary group transition-all">
+        <div class="p-2 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-500 group-hover:scale-110 transition-transform">
+          <span class="material-symbols-outlined text-[24px]">lightbulb</span>
+        </div>
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">关闭全灯</span>
+      </button>
+      <button class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-700 hover:border-primary dark:hover:border-primary group transition-all">
+        <div class="p-2 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 group-hover:scale-110 transition-transform">
+          <span class="material-symbols-outlined text-[24px]">system_update</span>
+        </div>
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">系统更新</span>
+      </button>
+      <button class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-700 hover:border-primary dark:hover:border-primary group transition-all">
+        <div class="p-2 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-500 group-hover:scale-110 transition-transform">
+          <span class="material-symbols-outlined text-[24px]">videocam</span>
+        </div>
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">监控画面</span>
+      </button>
+    </section> -->
+
+    <div class="rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">dns</span>
+                <h3 class="font-display font-bold text-slate-900 dark:text-white text-base">服务监控</h3>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="openAddServiceModal()" class="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors">
+                    <span class="material-symbols-outlined text-[14px]">add</span>
+                    添加
+                </button>
+                <button onclick="refreshAllServices()" class="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                    <span class="material-symbols-outlined text-[14px]">refresh</span>
+                    刷新
+                </button>
+            </div>
+        </div>
+        <div id="services-list" class="space-y-3">
+        </div>
+    </div>
+
+    <div id="device-control" class="mb-6">
+      <div class="flex items-center justify-between mb-4">
+          <h3 class="font-display font-bold text-slate-900 dark:text-white text-lg">设备控制</h3>
+          <button onclick="refreshHaDevices()" class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+              <span class="material-symbols-outlined">refresh</span>
+          </button>
+      </div>
+      <div id="ha-devices-list" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+           <!-- Devices will be rendered here -->
+           <div class="col-span-full text-center py-8 text-slate-400 text-sm">
+              正在连接 Home Assistant...
+           </div>
+      </div>
+    </div>
+
+  </main>
+
+  <main id="nas-page" class="page w-full mx-auto flex flex-col gap-6 p-4 max-w-2xl lg:max-w-4xl pt-2">
+  </main>
+
+  <div id="service-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-surface-light dark:bg-surface-dark rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-6">
+        <h3 id="modal-title" class="text-xl font-display font-bold text-slate-900 dark:text-white">添加 NAS 服务</h3>
+        <button onclick="closeModal()" class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <form id="service-form" onsubmit="saveService(event)" class="space-y-4">
+        <input type="hidden" id="service-id">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">服务名称</label>
+          <input type="text" id="service-name" required class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="例如：NAS Web 管理界面">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">服务类型</label>
+          <select id="service-type" required class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50">
+            <option value="web">Web 服务</option>
+            <option value="tcp">TCP 服务</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">主机地址</label>
+          <input type="text" id="service-host" required class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="例如：192.168.1.100">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">端口</label>
+          <input type="number" id="service-port" required min="1" max="65535" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="例如：5000">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">检查间隔（秒）</label>
+          <input type="number" id="service-interval" required min="10" max="3600" value="30" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50">
+        </div>
+        <div class="flex items-center gap-3 pt-2">
+          <input type="checkbox" id="service-enabled" checked class="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary">
+          <label for="service-enabled" class="text-sm font-medium text-slate-700 dark:text-slate-300">启用监控</label>
+        </div>
+        <div class="flex gap-3 pt-4">
+          <button type="button" onclick="closeModal()" class="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">取消</button>
+          <button type="submit" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-medium hover:bg-primary/90 transition-colors">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="service-menu" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-surface-light dark:bg-surface-dark rounded-2xl w-full max-w-xs p-2 shadow-2xl">
+      <button onclick="menuCheckService()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left">
+        <span class="material-symbols-outlined text-slate-500 dark:text-slate-400">refresh</span>
+        <span class="text-slate-700 dark:text-slate-200">刷新状态</span>
+      </button>
+      <button onclick="menuEditService()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left">
+        <span class="material-symbols-outlined text-slate-500 dark:text-slate-400">edit</span>
+        <span class="text-slate-700 dark:text-slate-200">修改服务</span>
+      </button>
+      <button onclick="menuDeleteService()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors text-left">
+        <span class="material-symbols-outlined text-red-500">delete</span>
+        <span class="text-red-600 dark:text-red-400">删除服务</span>
+      </button>
+      <button onclick="closeServiceMenu()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left">
+        <span class="material-symbols-outlined text-slate-500 dark:text-slate-400">close</span>
+        <span class="text-slate-700 dark:text-slate-200">取消</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="ha-settings-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-surface-light dark:bg-surface-dark rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white">系统设置</h3>
+        <button onclick="closeHaSettings()" class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      
+      <!-- Tabs -->
+      <div class="flex border-b border-slate-200 dark:border-slate-700 mb-6">
+          <button onclick="switchSettingsTab('ha')" id="tab-btn-ha" class="px-4 py-2 text-sm font-medium text-primary border-b-2 border-primary transition-colors">Home Assistant</button>
+          <button onclick="switchSettingsTab('temp')" id="tab-btn-temp" class="px-4 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">温度阈值</button>
+      </div>
+
+      <!-- HA Settings Form -->
+      <form id="settings-form-ha" onsubmit="saveHaSettings(event)" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Home Assistant 地址</label>
+          <input type="url" id="ha-url" placeholder="http://192.168.1.2:8123" class="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-sm focus:ring-primary focus:border-primary">
+          <p class="text-xs text-slate-500 mt-1">请包含 http:// 或 https:// 和端口号</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">长期访问令牌 (Token)</label>
+          <input type="password" id="ha-token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-sm focus:ring-primary focus:border-primary">
+          <p class="text-xs text-slate-500 mt-1">在 HA 用户资料页生成长期访问令牌</p>
+        </div>
+        
+        <div class="pt-2">
+            <button type="button" onclick="testHaConnection()" id="btn-test-ha" class="w-full py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors mb-3 flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-sm">wifi_tethering</span>
+                测试连接
+            </button>
+            <div class="flex gap-3">
+              <button type="button" onclick="closeHaSettings()" class="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">取消</button>
+              <button type="submit" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-medium hover:bg-primary/90 transition-colors">保存</button>
+            </div>
+        </div>
+      </form>
+
+      <!-- Temp Settings Form (Moved here) -->
+      <form id="settings-form-temp" onsubmit="saveTempSettings(event)" class="space-y-6 hidden">
+        <div>
+          <div class="flex justify-between mb-2">
+            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">警告阈值 (橙色)</label>
+            <span class="text-sm font-bold text-orange-500"><span id="temp-orange-val">60</span>°C</span>
+          </div>
+          <input type="range" id="temp-orange" min="40" max="90" step="1" class="w-full accent-orange-500" oninput="updateRangeValue('temp-orange-val', this.value)">
+        </div>
+        <div>
+          <div class="flex justify-between mb-2">
+            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">危险阈值 (红色)</label>
+            <span class="text-sm font-bold text-red-500"><span id="temp-red-val">80</span>°C</span>
+          </div>
+          <input type="range" id="temp-red" min="50" max="100" step="1" class="w-full accent-red-500" oninput="updateRangeValue('temp-red-val', this.value)">
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeHaSettings()" class="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">取消</button>
+          <button type="submit" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-medium hover:bg-primary/90 transition-colors">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { invoke } from '@tauri-apps/api/core';
+
+    let services = [];
+    let serviceStatuses = {};
+    let currentServiceId = null;
+    let appConfig = {
+        temp_threshold_orange: 60,
+        temp_threshold_red: 80
+    };
+
+    async function loadConfig() {
+        try {
+            appConfig = await invoke('get_app_config');
+        } catch (error) {
+            console.error('Failed to load config:', error);
+        }
+    }
+
+    function getTempClass(temp) {
+        if (!temp) return 'text-slate-400';
+        if (temp >= appConfig.temp_threshold_red) return 'text-red-500 font-bold';
+        if (temp >= appConfig.temp_threshold_orange) return 'text-orange-500 font-medium';
+        return 'text-emerald-500 font-medium';
+    }
+
+    async function updateSystemInfo() {
+      try {
+        const info = await invoke('get_system_info');
+        
+        const cpuUsage = Math.round(info.cpu_usage);
+        document.getElementById('cpu-usage').textContent = cpuUsage + '%';
+        
+        // 更新 CPU 温度显示
+        const cpuTemp = info.cpu_temp;
+        if (cpuTemp) {
+            const tempEl = document.getElementById('cpu-temp');
+            tempEl.textContent = Math.round(cpuTemp) + '°C';
+            tempEl.className = getTempClass(cpuTemp);
+        } else {
+            document.getElementById('cpu-temp').textContent = '--°C';
+        }
+      } catch (error) {
+        console.error('Failed to get system info:', error);
+      }
+    }
+
+    async function updateNetworkStats() {
+      try {
+        const stats = await invoke('get_network_stats');
+        document.getElementById('download-speed').textContent = Math.round(stats.download_speed) + ' Mbps';
+        document.getElementById('upload-speed').textContent = Math.round(stats.upload_speed) + ' Mbps';
+      } catch (error) {
+        console.error('Failed to get network stats:', error);
+      }
+    }
+
+    window.toggleDevice = async function(device, state) {
+      try {
+        const result = await invoke('toggle_device', { device, state });
+        console.log(`Device ${device} toggled to ${state}:`, result);
+      } catch (error) {
+        console.error('Failed to toggle device:', error);
+      }
+    };
+
+    window.shutdownSystem = async function() {
+      if (!confirm('确定要完全关闭系统吗？这将停止所有服务。')) return;
+      try {
+        await invoke('shutdown_system');
+      } catch (error) {
+        alert('关闭系统失败: ' + error);
+      }
+    };
+
+    window.restartSystem = async function() {
+      if (!confirm('确定要重启系统吗？')) return;
+      try {
+        await invoke('restart_system');
+      } catch (error) {
+        alert('重启系统失败: ' + error);
+      }
+    };
+
+    window.showPage = function(pageName, autoScroll = true) {
+      document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+      });
+      document.getElementById(pageName + '-page').classList.add('active');
+      
+      // 更新顶部导航按钮样式
+      updateNavStyles(pageName);
+
+      if (pageName === 'nas') {
+        loadServices();
+      }
+      
+      // 切换页面时，默认滚动到顶部 (除非 autoScroll 为 false)
+      if (autoScroll) {
+        window.scrollTo({ top: 0, behavior: 'instant' }); 
+      }
+    };
+
+    window.scrollToSection = function(pageName, sectionId) {
+        // 先切换到对应页面，禁用 showPage 的自动滚动
+        showPage(pageName, false);
+        
+        // 稍微延迟一点等待页面切换完成（虽然这里是同步的，但为了保险起见以及可能的动画效果）
+        setTimeout(() => {
+            const section = document.getElementById(sectionId);
+            if (section) {
+                // 计算 header 高度，避免被遮挡
+                // 注意：现在顶部还有一个全局的仪表盘健康区域，如果需要跳过它，
+                // 我们应该计算 section 相对于文档的绝对位置，然后减去 header 高度。
+                // 现在的布局是：Header -> 全局健康(固定位置但占流) -> Main(Page)
+                // 如果我们滚动到 section，浏览器会自动处理。
+                // 但是我们需要考虑到 sticky header。
+                
+                const headerHeight = document.querySelector('header').offsetHeight;
+                // 注意：如果全局健康区域不是 sticky 的，那么滚动到 nas-content 时，
+                // 全局健康区域会被卷上去，这正是我们想要的（定位到 nas-content）。
+                // 所以只需要减去 sticky header 的高度。
+                
+                const top = section.getBoundingClientRect().top + window.scrollY - headerHeight - 20; // 20px padding
+                window.scrollTo({ top: top, behavior: 'smooth' });
+            }
+        }, 10);
+    };
+
+    function updateNavStyles(activePage) {
+        // const navDashboard = document.getElementById('nav-dashboard'); // 已移除
+        const navNas = document.getElementById('nav-nas');
+        const navDevice = document.getElementById('nav-device');
+
+        // 简单的重置和激活逻辑
+        [navNas, navDevice].forEach(btn => {
+            if (btn) {
+                btn.className = 'px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors';
+            }
+        });
+
+        if (activePage === 'nas') {
+            if (navNas) navNas.className = 'px-3 py-1.5 rounded-lg text-sm font-medium bg-primary text-white transition-colors';
+        } else if (activePage === 'dashboard') {
+            // 如果在 Dashboard 页面，且点击的是设备控制（或者滚动到了设备控制），可以高亮设备控制
+            // 这里简单处理：只要在 Dashboard 页面，就高亮设备控制，因为现在 Dashboard 入口主要是设备控制
+             if (navDevice) navDevice.className = 'px-3 py-1.5 rounded-lg text-sm font-medium bg-primary text-white transition-colors';
+        }
+    }
+
+    async function loadServices() {
+      try {
+        services = await invoke('get_services');
+        renderServicesList();
+        refreshAllServices();
+      } catch (error) {
+        console.error('Failed to load services:', error);
+      }
+    }
+
+    function renderServicesList() {
+      const container = document.getElementById('services-list');
+      container.innerHTML = '';
+      
+      if (services.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12">
+            <span class="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600">dns</span>
+            <p class="text-slate-500 dark:text-slate-400 mt-4">暂无服务，点击"添加"开始监控</p>
+          </div>
+        `;
+        return;
+      }
+      
+      services.forEach(service => {
+        const status = serviceStatuses[service.id];
+        const isOnline = status ? status.is_online : false;
+        const responseTime = status ? status.response_time : 0;
+        const errorMessage = status ? status.error_message : null;
+        
+        const card = document.createElement('div');
+        card.className = 'group flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer';
+        card.onclick = () => showServiceMenu(service.id);
+        
+        card.innerHTML = `
+            <div class="flex items-center gap-3">
+              <div class="h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}"></div>
+              <div>
+                 <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-200">${service.name}</span>
+                    ${errorMessage ? `<span class="text-[10px] text-red-500 bg-red-50 dark:bg-red-900/20 px-1 rounded">错误</span>` : ''}
+                 </div>
+                 <div class="text-xs text-slate-500 hidden group-hover:block">${service.host}:${service.port}</div>
+              </div>
+            </div>
+            <span class="text-xs ${isOnline ? 'text-slate-500' : 'text-red-500 font-bold'}">${isOnline ? '响应 ' + responseTime + 'ms' : '已离线'}</span>
+        `;
+        
+        container.appendChild(card);
+      });
+    }
+
+    function formatTime(isoString) {
+      const date = new Date(isoString);
+      const now = new Date();
+      const diff = Math.floor((now - date) / 1000);
+      
+      if (diff < 60) return diff + '秒前';
+      if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+      if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
+      return Math.floor(diff / 86400) + '天前';
+    }
+
+    window.openAddServiceModal = function() {
+      document.getElementById('modal-title').textContent = '添加 NAS 服务';
+      document.getElementById('service-form').reset();
+      document.getElementById('service-id').value = '';
+      document.getElementById('service-modal').classList.remove('hidden');
+    };
+
+    window.editService = function(id) {
+      const service = services.find(s => s.id === id);
+      if (!service) return;
+      
+      document.getElementById('modal-title').textContent = '编辑 NAS 服务';
+      document.getElementById('service-id').value = service.id;
+      document.getElementById('service-name').value = service.name;
+      document.getElementById('service-type').value = service.service_type;
+      document.getElementById('service-host').value = service.host;
+      document.getElementById('service-port').value = service.port;
+      document.getElementById('service-interval').value = service.check_interval;
+      document.getElementById('service-enabled').checked = service.enabled;
+      
+      document.getElementById('service-modal').classList.remove('hidden');
+    };
+
+    window.closeModal = function() {
+      document.getElementById('service-modal').classList.add('hidden');
+    };
+
+    window.saveService = async function(event) {
+      event.preventDefault();
+      
+      const id = document.getElementById('service-id').value || 'service-' + Date.now();
+      const service = {
+        id: id,
+        name: document.getElementById('service-name').value,
+        service_type: document.getElementById('service-type').value,
+        host: document.getElementById('service-host').value,
+        port: parseInt(document.getElementById('service-port').value),
+        check_interval: parseInt(document.getElementById('service-interval').value),
+        enabled: document.getElementById('service-enabled').checked
+      };
+      
+      try {
+        if (document.getElementById('service-id').value) {
+          await invoke('update_service', { id: document.getElementById('service-id').value, service });
+        } else {
+          await invoke('add_service', { service });
+        }
+        
+        closeModal();
+        loadServices();
+      } catch (error) {
+        alert('保存失败: ' + error);
+      }
+    };
+
+    window.deleteService = async function(id) {
+      if (!confirm('确定要删除这个服务吗？')) return;
+      
+      try {
+        await invoke('delete_service', { id });
+        delete serviceStatuses[id];
+        loadServices();
+      } catch (error) {
+        alert('删除失败: ' + error);
+      }
+    };
+
+    async function checkService(id) {
+      try {
+        const status = await invoke('check_service', { id });
+        serviceStatuses[id] = status;
+        renderServicesList();
+      } catch (error) {
+        console.error('Failed to check service:', error);
+        serviceStatuses[id] = {
+          service_id: id,
+          is_online: false,
+          response_time: 0,
+          last_checked: new Date().toISOString(),
+          error_message: '检查失败'
+        };
+        renderServicesList();
+      }
+    }
+
+    window.checkService = checkService;
+
+    window.showServiceMenu = function(id) {
+      currentServiceId = id;
+      document.getElementById('service-menu').classList.remove('hidden');
+    };
+
+    window.closeServiceMenu = function() {
+      currentServiceId = null;
+      document.getElementById('service-menu').classList.add('hidden');
+    };
+
+    window.menuCheckService = function() {
+      if (currentServiceId) {
+        checkService(currentServiceId);
+      }
+      closeServiceMenu();
+    };
+
+    window.menuEditService = function() {
+      if (currentServiceId) {
+        editService(currentServiceId);
+      }
+      closeServiceMenu();
+    };
+
+    window.menuDeleteService = function() {
+      if (currentServiceId) {
+        deleteService(currentServiceId);
+      }
+      closeServiceMenu();
+    };
+
+    window.refreshAllServices = async function() {
+      try {
+        const statuses = await invoke('get_all_status');
+        statuses.forEach(status => {
+          serviceStatuses[status.service_id] = status;
+        });
+        renderServicesList();
+      } catch (error) {
+        console.error('Failed to refresh services:', error);
+      }
+    };
+
+    window.updateRangeValue = function(id, value) {
+        document.getElementById(id).textContent = value;
+    };
+
+    window.openHaSettings = async function() {
+        await loadConfig();
+        // HA fields
+        document.getElementById('ha-url').value = appConfig.ha_url || '';
+        document.getElementById('ha-token').value = appConfig.ha_token || '';
+        
+        // Temp fields
+        document.getElementById('temp-orange').value = appConfig.temp_threshold_orange;
+        document.getElementById('temp-orange-val').textContent = appConfig.temp_threshold_orange;
+        document.getElementById('temp-red').value = appConfig.temp_threshold_red;
+        document.getElementById('temp-red-val').textContent = appConfig.temp_threshold_red;
+        
+        // Default to HA tab
+        switchSettingsTab('ha');
+        
+        document.getElementById('ha-settings-modal').classList.remove('hidden');
+    };
+
+    window.closeHaSettings = function() {
+        document.getElementById('ha-settings-modal').classList.add('hidden');
+    };
+
+    window.switchSettingsTab = function(tab) {
+        const haForm = document.getElementById('settings-form-ha');
+        const tempForm = document.getElementById('settings-form-temp');
+        const haBtn = document.getElementById('tab-btn-ha');
+        const tempBtn = document.getElementById('tab-btn-temp');
+        
+        if (tab === 'ha') {
+            haForm.classList.remove('hidden');
+            tempForm.classList.add('hidden');
+            haBtn.className = 'px-4 py-2 text-sm font-medium text-primary border-b-2 border-primary transition-colors';
+            tempBtn.className = 'px-4 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors';
+        } else {
+            haForm.classList.add('hidden');
+            tempForm.classList.remove('hidden');
+            tempBtn.className = 'px-4 py-2 text-sm font-medium text-primary border-b-2 border-primary transition-colors';
+            haBtn.className = 'px-4 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors';
+        }
+    };
+
+    window.saveHaSettings = async function(event) {
+        event.preventDefault();
+        const newConfig = {
+            ...appConfig,
+            ha_url: document.getElementById('ha-url').value,
+            ha_token: document.getElementById('ha-token').value
+        };
+
+        try {
+            appConfig = await invoke('update_app_config', { config: newConfig });
+            alert('Home Assistant 配置已保存');
+            closeHaSettings();
+            refreshHaDevices();
+        } catch (error) {
+            alert('保存配置失败: ' + error);
+        }
+    };
+
+    window.saveTempSettings = async function(event) {
+        event.preventDefault();
+        const newConfig = {
+            ...appConfig,
+            temp_threshold_orange: parseFloat(document.getElementById('temp-orange').value),
+            temp_threshold_red: parseFloat(document.getElementById('temp-red').value)
+        };
+
+        try {
+            appConfig = await invoke('update_app_config', { config: newConfig });
+            alert('温度阈值已保存');
+            closeHaSettings();
+            updateSystemInfo();
+        } catch (error) {
+            alert('保存配置失败: ' + error);
+        }
+    };
+
+    window.testHaConnection = async function() {
+        const url = document.getElementById('ha-url').value;
+        const token = document.getElementById('ha-token').value;
+        const btn = document.getElementById('btn-test-ha');
+        const originalText = btn.innerHTML;
+        
+        if (!url || !token) {
+            alert('请先填写地址和 Token');
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> 连接中...';
+        
+        try {
+            await invoke('check_ha_connection', { url, token });
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm text-emerald-500">check</span> 连接成功';
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }, 2000);
+        } catch (error) {
+            alert('连接失败: ' + error);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    };
+
+    window.toggleHaDevice = async function(entityId, domain, service) {
+        try {
+            await invoke('call_ha_service', { domain, service, entityId });
+            // Refresh immediately to show new state
+            setTimeout(refreshHaDevices, 200);
+        } catch (error) {
+            alert('操作失败: ' + error);
+        }
+    };
+
+    window.refreshHaDevices = async function() {
+        const container = document.getElementById('ha-devices-list');
+        // Prevent refresh if modal is open to avoid conflict? No, background refresh is fine.
+        
+        if (!appConfig.ha_url || !appConfig.ha_token) {
+            container.innerHTML = `
+                <div class="col-span-full flex flex-col items-center justify-center py-8 text-slate-400 gap-2 cursor-pointer hover:text-primary transition-colors" onclick="openHaSettings()">
+                    <span class="material-symbols-outlined text-3xl">settings_suggest</span>
+                    <p class="text-sm">点击配置 Home Assistant</p>
+                </div>
+            `;
+            return;
+        }
+        
+        try {
+            const entities = await invoke('get_ha_entities');
+            // Filter for lights and switches
+            const devices = entities.filter(e => e.entity_id.startsWith('light.') || e.entity_id.startsWith('switch.'));
+            
+            container.innerHTML = '';
+            
+            if (devices.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400 text-sm">未找到开关或灯光设备</div>`;
+                return;
+            }
+            
+            devices.forEach(device => {
+                const isLight = device.entity_id.startsWith('light.');
+                const isOn = device.state === 'on';
+                const name = device.attributes.friendly_name || device.entity_id;
+                const icon = isLight ? 'lightbulb' : 'toggle_on';
+                
+                const card = document.createElement('button');
+                // Use different styles for on/off state
+                const activeClass = isOn 
+                    ? 'bg-primary text-white border-primary' 
+                    : 'bg-surface-light dark:bg-surface-dark text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-primary dark:hover:border-primary';
+                
+                const iconClass = isOn ? 'text-white' : (isLight ? 'text-amber-500' : 'text-primary');
+                const bgIconClass = isOn ? 'bg-white/20' : (isLight ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-blue-50 dark:bg-blue-900/20');
+                
+                card.className = `flex flex-col items-center justify-center gap-2 p-3 rounded-xl border group transition-all ${activeClass}`;
+                card.onclick = () => toggleHaDevice(device.entity_id, device.entity_id.split('.')[0], isOn ? 'turn_off' : 'turn_on');
+                
+                card.innerHTML = `
+                    <div class="p-2 rounded-full ${bgIconClass} ${iconClass} group-hover:scale-110 transition-transform">
+                      <span class="material-symbols-outlined text-[24px]">${icon}</span>
+                    </div>
+                    <span class="text-[10px] font-bold uppercase tracking-wider truncate w-full">${name}</span>
+                `;
+                
+                container.appendChild(card);
+            });
+        } catch (error) {
+            console.error('Failed to refresh HA devices:', error);
+            if (container.children.length === 0 || container.innerHTML.includes('正在连接')) {
+                 container.innerHTML = `<div class="col-span-full text-center py-8 text-red-400 text-sm">连接 Home Assistant 失败</div>`;
+            }
+        }
+    };
+
+    window.refreshNetwork = async function() {
+      const latencyEl = document.getElementById('net-latency');
+      const statusEl = document.getElementById('net-status');
+      
+      if (!latencyEl || !statusEl) return;
+
+      // 简单模拟或者使用 navigator.connection (如果支持)
+      // 这里为了演示效果，我们使用模拟数据，实际项目中可以 invoke 后端
+      
+      const isOnline = navigator.onLine;
+      
+      if (isOnline) {
+          // 模拟波动
+          const latency = Math.floor(Math.random() * 15) + 5; // 5-20ms
+          
+          statusEl.textContent = '在线';
+          statusEl.className = 'text-xs font-display font-medium text-slate-500 dark:text-slate-400 mt-1';
+          latencyEl.textContent = latency + 'ms';
+          
+          if (latency < 50) {
+             latencyEl.parentElement.className = 'text-xs font-bold text-emerald-500 flex items-center';
+          } else if (latency < 100) {
+             latencyEl.parentElement.className = 'text-xs font-bold text-orange-500 flex items-center';
+          } else {
+             latencyEl.parentElement.className = 'text-xs font-bold text-red-500 flex items-center';
+          }
+      } else {
+          statusEl.textContent = '离线';
+          statusEl.className = 'text-xs font-display font-bold text-red-500 mt-1';
+          latencyEl.textContent = '--';
+          latencyEl.parentElement.className = 'text-xs font-medium text-slate-400 flex items-center';
+      }
+    };
+
+    setInterval(updateSystemInfo, 5000);
+    setInterval(updateNetworkStats, 5000);
+    setInterval(refreshNetwork, 10000);
+    setInterval(refreshHaDevices, 5000); // Auto refresh HA devices
+    
+    updateSystemInfo();
+    updateNetworkStats();
+    refreshNetwork();
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      loadServices();
+      loadConfig();
+    });
+  </script>
+</body>
+</html>
