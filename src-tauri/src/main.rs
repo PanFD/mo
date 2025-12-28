@@ -88,13 +88,6 @@ struct HaEntityState {
     attributes: serde_json::Value,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct HaServiceCall {
-    domain: String,
-    service: String,
-    entity_id: String,
-}
-
 struct AppState {
     system: Mutex<System>,
     components: Mutex<Components>,
