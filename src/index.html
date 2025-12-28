@@ -52,10 +52,18 @@
     .tab-content.active {
       display: flex;
     }
-    /* 紧凑模式下的网格 */
+    /* 设备控制: 一行六列网格 */
     .compact-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 0.5rem;
+      align-content: start;
+    }
+
+    /* 服务监控: 两列卡片网格 */
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 0.5rem;
       align-content: start;
     }
@@ -64,7 +72,7 @@
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-body antialiased flex flex-col select-none">
   <!-- Header -->
   <header class="flex-none bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 py-2 z-20">
-    <div class="flex items-center justify-between h-8">
+      <div class="flex items-center justify-between h-8">
       <!-- Left: Logo/Status Summary -->
       <div class="flex items-center gap-2 text-xs">
          <div class="flex items-center gap-1 text-slate-500 dark:text-slate-400">
@@ -73,8 +81,8 @@
          </div>
          <div class="w-px h-3 bg-slate-300 dark:bg-slate-700"></div>
          <div class="flex items-center gap-1 text-slate-500 dark:text-slate-400">
-            <span class="material-symbols-outlined text-[16px]">network_check</span>
-            <span id="header-net-speed">--</span>
+            <span class="material-symbols-outlined text-[16px]">lan</span>
+            <span id="header-ip">--</span>
          </div>
       </div>
 
@@ -138,7 +146,7 @@
 
         <!-- Services List -->
         <div class="flex-1 overflow-hidden">
-            <div id="services-list" class="space-y-2">
+            <div id="services-list" class="services-grid">
                 <!-- Services will be rendered here -->
             </div>
         </div>
@@ -349,9 +357,9 @@
         // Start Loops
         updateSystemInfo();
         setInterval(updateSystemInfo, 2000);
-        
-        updateNetworkStats();
-        setInterval(updateNetworkStats, 5000);
+
+        updateLocalIp();
+        setInterval(updateLocalIp, 10000);
         
         refreshHaDevices(); // Initial load
         // setInterval(refreshHaDevices, 10000); // Optional auto-refresh
@@ -373,11 +381,10 @@
       } catch (e) { console.error(e); }
     }
 
-    async function updateNetworkStats() {
+    async function updateLocalIp() {
       try {
-        const stats = await invoke('get_network_stats');
-        document.getElementById('header-net-speed').textContent = 
-            `${Math.round(stats.download_speed)}↓ ${Math.round(stats.upload_speed)}↑ Mb`;
+        const ip = await invoke('get_local_ip');
+        document.getElementById('header-ip').textContent = ip;
       } catch (e) { console.error(e); }
     }
 

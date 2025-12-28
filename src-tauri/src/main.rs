@@ -14,6 +14,7 @@ use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
 use chrono::{DateTime, Utc};
 use reqwest::Client;
+use local_ip_address::local_ip;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SystemInfo {
@@ -22,12 +23,6 @@ struct SystemInfo {
     memory_total: u64,
     disk_available: u64,
     cpu_temp: Option<f32>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct NetworkStats {
-    download_speed: f32,
-    upload_speed: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -257,11 +252,11 @@ async fn get_system_info(state: tauri::State<'_, AppState>) -> Result<SystemInfo
 }
 
 #[tauri::command]
-async fn get_network_stats() -> Result<NetworkStats, String> {
-    Ok(NetworkStats {
-        download_speed: 840.0,
-        upload_speed: 42.0,
-    })
+async fn get_local_ip() -> Result<String, String> {
+    match local_ip() {
+        Ok(ip) => Ok(ip.to_string()),
+        Err(e) => Err(format!("获取本机 IP 失败: {}", e)),
+    }
 }
 
 #[tauri::command]
@@ -510,7 +505,7 @@ fn main() {
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             get_system_info,
-            get_network_stats,
+            get_local_ip,
             toggle_device,
             get_services,
             add_service,

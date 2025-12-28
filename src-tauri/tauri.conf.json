@@ -13,11 +13,11 @@
     "windows": [
       {
         "title": "Monitor Dashboard",
-        "width": 700,
+        "width": 720,
         "height": 400,
         "resizable": true,
         "fullscreen": false,
-        "minWidth": 700,
+        "minWidth": 720,
         "minHeight": 400
       }
     ],
