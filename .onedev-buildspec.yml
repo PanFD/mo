@@ -51,7 +51,7 @@ jobs:
         image: ubuntu:24.04
         commands:
           - set -eu
-          - sed -i 's/^Types: deb$/Types: deb\nArchitectures: amd64/' /etc/apt/sources.list.d/ubuntu.sources
+          - 'sed -i "/^Types: deb$/a Architectures: amd64" /etc/apt/sources.list.d/ubuntu.sources'
           - |
             cat <<EOF > /etc/apt/sources.list.d/arm64.sources
             Types: deb
