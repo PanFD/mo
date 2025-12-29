@@ -52,12 +52,16 @@
     .tab-content.active {
       display: flex;
     }
-    /* 设备控制: 一行六列网格 */
+    /* 设备控制: 2 行 6 列网格 */
     .compact-grid {
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 0.5rem;
       align-content: start;
+    }
+
+    .device-card-30 {
+      height: 7rem; /* 相当于 Tailwind 的 h-28 (约 112px) */
     }
 
     /* 服务监控: 两列卡片网格 */
@@ -94,7 +98,7 @@
 
       <!-- Right: Settings -->
       <div class="flex items-center gap-2">
-        <button onclick="openHaSettings()" class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+        <button onclick="openAppMenu()" class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
           <span class="material-symbols-outlined text-[18px]">settings</span>
         </button>
       </div>
@@ -106,6 +110,13 @@
     
     <!-- Tab: Device Control -->
     <div id="tab-device" class="tab-content active p-3">
+        <div class="flex justify-between items-center mb-2 flex-none">
+            <h3 class="text-sm font-bold text-slate-700 dark:text-slate-200">设备列表</h3>
+            <button onclick="refreshHaDevices()" class="flex items-center gap-1 px-2 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs hover:bg-slate-300 dark:hover:bg-slate-700">
+                <span class="material-symbols-outlined text-[14px]">sync</span>
+                同步
+            </button>
+        </div>
         <!-- Devices Grid -->
         <div class="flex-1 overflow-hidden">
              <div id="ha-devices-list" class="compact-grid">
@@ -231,6 +242,28 @@
      </div>
   </div>
 
+  <div id="app-menu" class="fixed inset-0 bg-black/20 z-50 hidden" onclick="if(event.target===this) closeAppMenu()">
+     <div class="absolute top-10 right-3 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-1 w-40">
+        <button onclick="menuOpenHaSettings()" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-700 rounded flex items-center gap-2">
+            <span class="material-symbols-outlined text-[14px]">tune</span> HA 设置
+        </button>
+        <button onclick="menuToggleFullscreen()" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-700 rounded flex items-center gap-2">
+            <span class="material-symbols-outlined text-[14px]">fullscreen</span> 切换全屏
+        </button>
+        <button onclick="menuQuitApp()" class="w-full text-left px-3 py-2 text-xs hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 rounded flex items-center gap-2">
+            <span class="material-symbols-outlined text-[14px]">power_settings_new</span> 退出程序
+        </button>
+     </div>
+  </div>
+
+  <div id="device-menu" class="fixed inset-0 bg-black/20 z-50 hidden" onclick="if(event.target===this) closeDeviceMenu()">
+     <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-1 w-32">
+        <button onclick="menuExcludeDevice()" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-700 rounded flex items-center gap-2">
+            <span class="material-symbols-outlined text-[14px]">block</span> 排除设备
+        </button>
+     </div>
+  </div>
+
   <!-- HA Settings Modal -->
   <div id="ha-settings-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-surface-light dark:bg-surface-dark rounded-xl w-full max-w-sm p-4 shadow-2xl border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
@@ -255,6 +288,13 @@
         <div>
           <label class="block text-xs font-medium text-slate-500 mb-1">Token</label>
           <input type="password" id="ha-token" class="w-full px-2 py-1.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:ring-1 focus:ring-primary" placeholder="Long-lived access token">
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-medium text-slate-500">排除设备</label>
+            <span class="text-[10px] text-slate-400">点击恢复以重新显示</span>
+          </div>
+          <div id="excluded-devices-list" class="max-h-32 overflow-auto border border-slate-200 dark:border-slate-700 rounded px-2 py-1 bg-slate-50 dark:bg-slate-900 text-[11px] space-y-1"></div>
         </div>
         <div class="pt-1">
             <button type="button" onclick="testHaConnection()" id="btn-test-ha" class="w-full py-1.5 rounded border border-slate-200 dark:border-slate-700 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 mb-2">测试连接</button>
@@ -285,20 +325,22 @@
   <script type="module">
     import { invoke } from '@tauri-apps/api/core';
 
-    // State
     const state = {
         services: [],
         serviceStatuses: {},
         devices: [],
+        rawDevices: [],
         appConfig: {
             temp_threshold_orange: 60,
             temp_threshold_red: 80
         },
         currentServiceId: null,
+        currentDeviceId: null,
         pagination: {
-            device: { page: 1, pageSize: 18, total: 0 },
+            device: { page: 1, pageSize: 12, total: 0 },
             service: { page: 1, pageSize: 5, total: 0 }
-        }
+        },
+        excludedEntities: []
     };
 
     const serviceNextCheck = {};
@@ -402,13 +444,14 @@
 
         try {
             const entities = await invoke('get_ha_entities');
-            // Filter: Lights, Switches, Fans, Covers, etc.
-            state.devices = entities.filter(e => 
+            state.rawDevices = entities.filter(e => 
                 e.entity_id.startsWith('light.') || 
                 e.entity_id.startsWith('switch.') ||
                 e.entity_id.startsWith('fan.') ||
                 e.entity_id.startsWith('cover.')
             );
+            const excluded = new Set(state.excludedEntities || []);
+            state.devices = state.rawDevices.filter(e => !excluded.has(e.entity_id));
             
             state.pagination.device.total = state.devices.length;
             // Reset page if out of bounds
@@ -419,6 +462,35 @@
         } catch (error) {
             console.error(error);
             container.innerHTML = `<div class="col-span-full text-center text-red-500 text-xs py-10">连接失败: ${error}</div>`;
+        }
+    };
+
+    window.openAppMenu = function() {
+        document.getElementById('app-menu').classList.remove('hidden');
+    };
+
+    window.closeAppMenu = function() {
+        document.getElementById('app-menu').classList.add('hidden');
+    };
+
+    window.menuOpenHaSettings = function() {
+        closeAppMenu();
+        openHaSettings();
+    };
+
+    window.menuToggleFullscreen = async function() {
+        try {
+            await invoke('toggle_fullscreen_cmd');
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    window.menuQuitApp = async function() {
+        try {
+            await invoke('quit_app_cmd');
+        } catch (e) {
+            console.error(e);
         }
     };
 
@@ -442,7 +514,7 @@
                 else if (device.entity_id.startsWith('cover.')) icon = 'blinds';
                 
                 const div = document.createElement('div');
-                div.className = `flex flex-col items-center justify-center p-2 rounded-lg border transition-all cursor-pointer h-20 ${
+                div.className = `relative flex flex-col items-center justify-center p-2 rounded-lg border transition-all cursor-pointer device-card-30 ${
                     isOn 
                     ? 'bg-primary/10 border-primary/30 text-primary' 
                     : 'bg-surface-light dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'
@@ -450,6 +522,9 @@
                 div.onclick = () => toggleHaDevice(device.entity_id);
                 
                 div.innerHTML = `
+                    <button class="absolute top-1 right-1 p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400" onclick="event.stopPropagation(); openDeviceMenu('${device.entity_id}')">
+                        <span class="material-symbols-outlined text-[14px]">more_vert</span>
+                    </button>
                     <span class="material-symbols-outlined text-2xl mb-1 ${isOn ? 'fill-current' : ''}">${icon}</span>
                     <span class="text-[10px] font-medium truncate w-full text-center leading-tight">${name}</span>
                     <span class="text-[9px] opacity-70">${isOn ? '开启' : '关闭'}</span>
@@ -481,6 +556,22 @@
             device.state = originalState;
             renderDevices();
             alert('操作失败: ' + e);
+        }
+    };
+
+    window.excludeDevice = async function(entityId) {
+        if (!confirm('将此设备从控制页中排除？')) return;
+        if (!state.excludedEntities.includes(entityId)) {
+            state.excludedEntities.push(entityId);
+        }
+        const newConfig = { ...state.appConfig, excluded_entities: state.excludedEntities };
+        try {
+            await invoke('update_app_config', { config: newConfig });
+            state.appConfig = newConfig;
+            await refreshHaDevices();
+            renderExcludedDevices();
+        } catch (err) {
+            alert(err);
         }
     };
 
@@ -592,6 +683,7 @@
     async function loadConfig() {
         try {
             state.appConfig = await invoke('get_app_config');
+            state.excludedEntities = state.appConfig.excluded_entities || [];
         } catch (e) { console.error(e); }
     }
 
@@ -683,6 +775,7 @@
         document.getElementById('temp-red-val').textContent = state.appConfig.temp_threshold_red;
         
         switchSettingsTab('ha');
+        renderExcludedDevices();
         document.getElementById('ha-settings-modal').classList.remove('hidden');
     };
     
@@ -709,7 +802,7 @@
     
     window.saveHaSettings = async function(e) {
         e.preventDefault();
-        const newConfig = { ...state.appConfig, ha_url: document.getElementById('ha-url').value, ha_token: document.getElementById('ha-token').value };
+        const newConfig = { ...state.appConfig, ha_url: document.getElementById('ha-url').value, ha_token: document.getElementById('ha-token').value, excluded_entities: state.excludedEntities };
         try {
             await invoke('update_app_config', { config: newConfig });
             closeHaSettings();
@@ -748,6 +841,57 @@
             btn.innerText = oldText;
         }
     };
+
+    window.openDeviceMenu = function(entityId) {
+        state.currentDeviceId = entityId;
+        document.getElementById('device-menu').classList.remove('hidden');
+    };
+
+    window.closeDeviceMenu = function() {
+        state.currentDeviceId = null;
+        document.getElementById('device-menu').classList.add('hidden');
+    };
+
+    window.menuExcludeDevice = function() {
+        if (!state.currentDeviceId) return;
+        excludeDevice(state.currentDeviceId);
+        closeDeviceMenu();
+    };
+
+    function renderExcludedDevices() {
+        const container = document.getElementById('excluded-devices-list');
+        if (!container) return;
+        const ids = state.appConfig.excluded_entities || state.excludedEntities || [];
+        container.innerHTML = '';
+        if (!ids.length) {
+            container.textContent = '当前没有排除的设备';
+            return;
+        }
+        ids.forEach(id => {
+            const device = (state.rawDevices || []).find(d => d.entity_id === id);
+            const name = device && device.attributes && device.attributes.friendly_name ? device.attributes.friendly_name : id;
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between gap-2';
+            row.innerHTML = `
+                <span class="truncate">${name}</span>
+                <button class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px]" data-id="${id}">恢复</button>
+            `;
+            row.querySelector('button').onclick = () => includeDevice(id);
+            container.appendChild(row);
+        });
+    }
+
+    function includeDevice(entityId) {
+        state.excludedEntities = (state.excludedEntities || []).filter(id => id !== entityId);
+        const newConfig = { ...state.appConfig, excluded_entities: state.excludedEntities };
+        invoke('update_app_config', { config: newConfig })
+            .then(() => {
+                state.appConfig = newConfig;
+                renderExcludedDevices();
+                refreshHaDevices();
+            })
+            .catch(err => alert(err));
+    }
 
     init();
   </script>

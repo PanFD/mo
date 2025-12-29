@@ -63,6 +63,7 @@ struct AppConfig {
     temp_threshold_red: f32,
     ha_url: Option<String>,
     ha_token: Option<String>,
+    excluded_entities: Option<Vec<String>>,
 }
 
 impl Default for AppConfig {
@@ -72,8 +73,15 @@ impl Default for AppConfig {
             temp_threshold_red: 80.0,
             ha_url: None,
             ha_token: None,
+            excluded_entities: None,
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct HaFileConfig {
+    ha_url: Option<String>,
+    ha_token: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -123,6 +131,12 @@ impl AppState {
         path
     }
 
+    fn get_ha_file_path() -> PathBuf {
+        let mut path = Self::get_config_dir();
+        path.push("ha.json");
+        path
+    }
+
     fn load_services() -> Vec<ServiceConfig> {
         let path = Self::get_services_path();
         if path.exists() {
@@ -136,15 +150,32 @@ impl AppState {
     }
 
     fn load_config() -> AppConfig {
+        let mut config = AppConfig::default();
+
         let path = Self::get_config_path();
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(config) = serde_json::from_str::<AppConfig>(&content) {
-                    return config;
+                if let Ok(file_config) = serde_json::from_str::<AppConfig>(&content) {
+                    config = file_config;
                 }
             }
         }
-        AppConfig::default()
+
+        let ha_path = Self::get_ha_file_path();
+        if ha_path.exists() {
+            if let Ok(content) = fs::read_to_string(&ha_path) {
+                if let Ok(ha_config) = serde_json::from_str::<HaFileConfig>(&content) {
+                    if let Some(url) = ha_config.ha_url {
+                        config.ha_url = Some(url);
+                    }
+                    if let Some(token) = ha_config.ha_token {
+                        config.ha_token = Some(token);
+                    }
+                }
+            }
+        }
+
+        config
     }
 
     fn save_services(services: &[ServiceConfig]) -> Result<(), String> {
@@ -459,6 +490,18 @@ async fn call_ha_service(domain: String, service: String, entity_id: String, sta
 }
 
 #[tauri::command]
+async fn toggle_fullscreen_cmd(window: tauri::WebviewWindow) -> Result<(), String> {
+    let is_full = window.is_fullscreen().map_err(|e| e.to_string())?;
+    window.set_fullscreen(!is_full).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn quit_app_cmd(app: tauri::AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
+}
+
+#[tauri::command]
 async fn shutdown_system() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     let output = std::process::Command::new("shutdown")
@@ -515,6 +558,8 @@ fn main() {
             get_all_status,
             get_app_config,
             update_app_config,
+            toggle_fullscreen_cmd,
+            quit_app_cmd,
             shutdown_system,
             restart_system,
             check_ha_connection,
